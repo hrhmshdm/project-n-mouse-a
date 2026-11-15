@@ -1,0 +1,150 @@
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/pointing.h>
+
+/ {
+    // ==========================================================
+    // Combos / 同時押しコンボ設定
+    // ==========================================================
+    combos {
+        compatible = "zmk,combos";
+
+        // Layer 0: Left Click + Right Click = Copy (Ctrl + C)
+        // レイヤー0：左クリック ＋ 右クリック ＝ コピー (Ctrl + C)
+        combo_copy {
+            timeout-ms = <50>;
+            key-positions = <0 1>; // 0: LCLK, 1: RCLK
+            bindings = <&kp LC(C)>;
+            layers = <0>;
+        };
+
+        // Layer 1 (While holding Side): Left Click + Right Click = Snipping Tool (Win + Shift + S)
+        // レイヤー1（サイド押下中）：左右同時押し ＝ スニッピングツール (Win + Shift + S)
+        combo_snip {
+            timeout-ms = <50>;
+            key-positions = <0 1>; // 0: LCLK, 1: RCLK
+            bindings = <&snipping_tool>;
+            layers = <1>;
+        };
+    };
+
+    // ==========================================================
+    // Macros / マクロ定義
+    // ==========================================================
+    macros {
+        // Snipping Tool Macro (Guarantees modifier hold sequence for Windows)
+        // スニッピングツール専用マクロ（修飾キーの同時押し順序を保証）
+        snipping_tool: snipping_tool_macro {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            wait-ms = <10>;
+            tap-ms = <20>;
+            bindings
+                = <&macro_press &kp LGUI &kp LSHFT>
+                , <&macro_tap &kp S>
+                , <&macro_release &kp LGUI &kp LSHFT>;
+        };
+
+        // Next Bluetooth profile macro
+        // 次のBluetoothプロファイルへ切り替え
+        bt_nxt_m: bt_nxt_macro {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&bt BT_NXT>;
+        };
+
+        // Clear current Bluetooth profile macro
+        // 現在のBluetoothプロファイルのペアリング解除
+        bt_clr_m: bt_clr_macro {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&bt BT_CLR>;
+        };
+    };
+
+    // ==========================================================
+    // Custom Behaviors / カスタム動作定義
+    // ==========================================================
+    behaviors {
+        // SW4 (Side): Tap for MB4 (Back), Hold for Layer 1
+        // SW4（サイド）：単押しで「戻る(MB4)」、長押し中はレイヤー1へ移行
+        lt_mkp: layer_tap_mouse_kp {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            flavor = "tap-preferred";
+            tapping-term-ms = <180>;
+            bindings = <&mo>, <&mkp>;
+        };
+
+        // In Layer 1: Tap for Paste (Ctrl+V), Hold for Layer 2
+        // レイヤー1内：右クリック単押しでペースト(Ctrl+V)、長押しでレイヤー2へ
+        lt_paste_layer2: layer_tap_paste_layer2 {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            flavor = "tap-preferred";
+            tapping-term-ms = <180>;
+            bindings = <&mo>, <&kp>;
+        };
+
+        // SW5 (Mode): Tap for Next BT Profile, Hold (2 sec) to Clear Profile
+        // SW5（モード）：短押しで次の接続先へ、2秒長押しでペアリング解除
+        bt_mode: bt_mode_hold_tap {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            flavor = "hold-preferred";
+            tapping-term-ms = <2000>;
+            bindings = <&bt_clr_m>, <&bt_nxt_m>;
+        };
+
+        // Direct 1-pulse to 1-report integer wheel scroll behavior (ported for ZMK v0.3)
+        // 1ノッチ＝1ダイレクト送信の低遅延スクロール動作（v0.3移植版）
+        ec_ms: encoder_mouse_scroll {
+            compatible = "zmk,behavior-encoder-mouse-scroll";
+            #sensor-binding-cells = <2>;
+        };
+    };
+
+    // ==========================================================
+    // Keymap Layers / キーマップ定義
+    // ==========================================================
+    keymap {
+        compatible = "zmk,keymap";
+
+        // Layer 0: Default / 通常モード
+        default_layer {
+            bindings = <
+                &mkp LCLK       // 0: Left Click / 左クリック
+                &mkp RCLK       // 1: Right Click / 右クリック
+                &mkp MCLK       // 2: Middle Click / 中クリック
+                &lt_mkp 1 MB4   // 3: Side Switch (Tap: Back MB4 / Hold: Layer 1)
+                &bt_mode 0 0    // 4: Mode Switch (Tap: Next BT / Hold 2s: Clear BT)
+            >;
+            sensor-bindings = <&ec_ms SCRL_UP SCRL_DOWN>;
+        };
+
+        // Layer 1: Navigation Layer / ナビゲーションレイヤー（サイドボタン長押し中）
+        scroll_layer {
+            bindings = <
+                &mkp MB5                    // 0: Side + LCLK: Forward (MB5) / 進む
+                &lt_paste_layer2 2 LC(V)    // 1: Side + RCLK (Tap: Paste Ctrl+V / Hold: Layer 2)
+                &kp LG(TAB)                 // 2: Side + MCLK: Task View (Win + Tab)
+                &trans                      // 3: Side Button (Transparent)
+                &bootloader                 // 4: Mode Button: DFU Bootloader Mode / 書込モード
+            >;
+            sensor-bindings = <&ec_ms SCRL_LEFT SCRL_RIGHT>;
+        };
+
+        // Layer 2: System & Profile Layer / システム・BT切替レイヤー（サイド ＋ 右クリック長押し中）
+        fast_scroll_layer {
+            bindings = <
+                &bt BT_SEL 0     // 0: Side + RCLK + LCLK: Select Profile 0
+                &trans           // 1: Transparent
+                &bt BT_SEL 1     // 2: Side + RCLK + MCLK: Select Profile 1
+                &trans           // 3: Transparent
+                &trans           // 4: Transparent
+            >;
+            sensor-bindings = <&ec_ms SCRL_UP SCRL_DOWN>;
+        };
+    };
+};
