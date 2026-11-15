@@ -110,10 +110,10 @@ static int behavior_ec_ms_process(struct zmk_behavior_binding *binding,
     wheel *= abs_trig;
 
     zmk_hid_mouse_scroll_set(h_wheel, wheel);
-    zmk_endpoints_send_mouse_report();
+    zmk_endpoints_send_report(HID_USAGE_GD_MOUSE);
 
     zmk_hid_mouse_scroll_set(0, 0);
-    zmk_endpoints_send_mouse_report();
+    zmk_endpoints_send_report(HID_USAGE_GD_MOUSE);
 
     return ZMK_BEHAVIOR_OPAQUE;
 }
